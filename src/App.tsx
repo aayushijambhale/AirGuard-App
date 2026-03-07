@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Home, 
+  Search,
   Map as MapIcon, 
   History, 
   Bell, 
@@ -16,7 +17,8 @@ import {
   MapPin,
   Bot,
   Loader2,
-  User
+  User,
+  Search as SearchIcon
 } from 'lucide-react';
 import { 
   LineChart, 
@@ -32,7 +34,7 @@ import {
 import { MapContainer, TileLayer, Marker, Popup, Circle } from 'react-leaflet';
 import L from 'leaflet';
 import { generateChatResponse } from './lib/gemini';
-import { fetchCurrentAQI, getAQICategory, AQIData } from './lib/aqi';
+import { fetchCurrentAQI, getAQICategory, AQIData, INDIAN_CITIES } from './lib/aqi';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -49,7 +51,7 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-type Screen = 'home' | 'map' | 'history' | 'alerts' | 'settings';
+type Screen = 'home' | 'search' | 'map' | 'history' | 'alerts' | 'settings';
 
 export default function App() {
   const [activeScreen, setActiveScreen] = useState<Screen>('home');
@@ -92,12 +94,12 @@ export default function App() {
           (pos) => {
             const newLoc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
             setLocation(newLoc);
-            refreshData(newLoc.lat, newLoc.lng);
+            refreshData(newLoc.lat, newLoc.lng, "Current Location", "GPS Detected");
           },
-          () => refreshData(location.lat, location.lng)
+          () => refreshData(location.lat, location.lng, "New Delhi", "Central")
         );
       } else {
-        refreshData(location.lat, location.lng);
+        refreshData(location.lat, location.lng, "New Delhi", "Central");
       }
 
       // Fetch user settings
@@ -122,8 +124,8 @@ export default function App() {
     }
   };
 
-  const refreshData = async (lat: number, lng: number) => {
-    const data = await fetchCurrentAQI(lat, lng);
+  const refreshData = async (lat: number, lng: number, cityName?: string, areaName?: string) => {
+    const data = await fetchCurrentAQI(lat, lng, cityName, areaName);
     setAqiData(data);
     
     // Log to history
@@ -132,6 +134,7 @@ export default function App() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         location_name: data.location,
+        area_name: data.area,
         aqi_value: data.aqi,
         ...data.pollutants
       })
@@ -146,7 +149,12 @@ export default function App() {
 
   const renderScreen = () => {
     switch (activeScreen) {
-      case 'home': return <HomeScreen data={aqiData} aiAdvice={aiAdvice} loadingAdvice={loadingAdvice} onRefresh={() => refreshData(location.lat, location.lng)} />;
+      case 'home': return <HomeScreen data={aqiData} aiAdvice={aiAdvice} loadingAdvice={loadingAdvice} onRefresh={() => refreshData(location.lat, location.lng, aqiData?.location, aqiData?.area)} />;
+      case 'search': return <SearchScreen onSelectLocation={(city, area, lat, lng) => {
+        setLocation({ lat, lng });
+        refreshData(lat, lng, city, area);
+        setActiveScreen('home');
+      }} onUseGPS={() => initApp()} />;
       case 'map': return <MapScreen center={location} data={aqiData} />;
       case 'history': return <HistoryScreen history={history} />;
       case 'alerts': return <AlertsScreen alerts={alerts} settings={userSettings} onUpdateSettings={setUserSettings} />;
@@ -203,12 +211,12 @@ export default function App() {
       </main>
 
       {/* Bottom Nav */}
-      <nav className="absolute bottom-0 left-0 right-0 bg-white/80 backdrop-blur-lg border-t border-gray-100 px-6 py-3 flex items-center justify-between z-20">
+      <nav className="absolute bottom-0 left-0 right-0 bg-white/80 backdrop-blur-lg border-t border-gray-100 px-4 py-3 flex items-center justify-between z-20">
         <NavButton active={activeScreen === 'home'} icon={<Home />} label="Home" onClick={() => setActiveScreen('home')} />
+        <NavButton active={activeScreen === 'search'} icon={<SearchIcon />} label="Search" onClick={() => setActiveScreen('search')} />
         <NavButton active={activeScreen === 'map'} icon={<MapIcon />} label="Map" onClick={() => setActiveScreen('map')} />
         <NavButton active={activeScreen === 'history'} icon={<History />} label="Trends" onClick={() => setActiveScreen('history')} />
         <NavButton active={activeScreen === 'alerts'} icon={<Bell />} label="Alerts" onClick={() => setActiveScreen('alerts')} />
-        <NavButton active={activeScreen === 'settings'} icon={<Settings />} label="Settings" onClick={() => setActiveScreen('settings')} />
       </nav>
     </div>
   );
@@ -252,9 +260,14 @@ function HomeScreen({ data, aiAdvice, loadingAdvice, onRefresh }: { data: AQIDat
           style={{ backgroundColor: data.color }}
         />
         
-        <div className="flex items-center gap-2 text-gray-400 mb-2">
-          <MapPin className="w-4 h-4" />
-          <span className="text-sm font-medium">{data.location}</span>
+        <div className="flex flex-col items-center gap-1 text-gray-400 mb-2">
+          <div className="flex items-center gap-2">
+            <MapPin className="w-4 h-4" />
+            <span className="text-sm font-bold text-gray-900">{data.location}</span>
+          </div>
+          {data.area && (
+            <span className="text-xs font-medium text-gray-400">{data.area}</span>
+          )}
         </div>
 
         <div className="relative mb-4">
@@ -278,7 +291,7 @@ function HomeScreen({ data, aiAdvice, loadingAdvice, onRefresh }: { data: AQIDat
             <ShieldCheck className="w-5 h-5 text-blue-500" />
             <span>Health Advice</span>
           </div>
-          <p className="text-gray-500 text-sm leading-relaxed max-w-[200px]">
+          <p className="text-gray-500 text-sm leading-relaxed">
             {data.advice}
           </p>
         </div>
@@ -305,17 +318,96 @@ function HomeScreen({ data, aiAdvice, loadingAdvice, onRefresh }: { data: AQIDat
         <PollutantCard label="CO" value={data.pollutants.co} unit="mg/m³" />
         <PollutantCard label="NO₂" value={data.pollutants.no2} unit="µg/m³" />
       </div>
+    </div>
+  );
+}
 
-      {/* Safety Banner */}
-      <div className="bg-blue-50 rounded-2xl p-4 flex items-start gap-4 border border-blue-100">
-        <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center shrink-0">
-          <Info className="w-5 h-5 text-blue-600" />
+function SearchScreen({ onSelectLocation, onUseGPS }: { onSelectLocation: (city: string, area: string, lat: number, lng: number) => void, onUseGPS: () => void }) {
+  const [city, setCity] = useState('');
+  const [area, setArea] = useState('');
+
+  const handleSearch = () => {
+    if (!city) return;
+    const foundCity = INDIAN_CITIES.find(c => c.name.toLowerCase() === city.toLowerCase());
+    const lat = foundCity?.lat || 28.6139;
+    const lng = foundCity?.lng || 77.2090;
+    onSelectLocation(city, area || "Local Area", lat, lng);
+  };
+
+  return (
+    <div className="p-6 space-y-8">
+      <div>
+        <h2 className="text-2xl font-bold text-gray-900">Search Location</h2>
+        <p className="text-sm text-gray-500">Enter your city and area for real-time AQI</p>
+      </div>
+
+      <div className="space-y-4">
+        <div className="space-y-2">
+          <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">City Name</label>
+          <div className="relative">
+            <SearchIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <input 
+              type="text" 
+              placeholder="e.g. Pune, Delhi, Mumbai"
+              value={city}
+              onChange={(e) => setCity(e.target.value)}
+              className="w-full pl-12 pr-4 py-4 bg-white rounded-2xl border border-gray-100 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
+            />
+          </div>
         </div>
-        <div>
-          <h4 className="text-sm font-bold text-blue-900">Safety Tip</h4>
-          <p className="text-xs text-blue-700 mt-1 leading-relaxed">
-            Keep windows closed during peak traffic hours to minimize indoor pollution exposure.
-          </p>
+
+        <div className="space-y-2">
+          <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Local Area / Neighborhood</label>
+          <div className="relative">
+            <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <input 
+              type="text" 
+              placeholder="e.g. Shivaji Nagar"
+              value={area}
+              onChange={(e) => setArea(e.target.value)}
+              className="w-full pl-12 pr-4 py-4 bg-white rounded-2xl border border-gray-100 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
+            />
+          </div>
+        </div>
+
+        <button 
+          onClick={handleSearch}
+          className="w-full py-4 bg-blue-600 text-white font-bold rounded-2xl shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all active:scale-95"
+        >
+          Check Air Quality
+        </button>
+
+        <div className="relative py-4">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-gray-100"></div>
+          </div>
+          <div className="relative flex justify-center text-xs uppercase tracking-widest font-bold text-gray-300 bg-[#F8FAFC] px-4">
+            OR
+          </div>
+        </div>
+
+        <button 
+          onClick={onUseGPS}
+          className="w-full py-4 bg-white text-gray-700 font-bold rounded-2xl border border-gray-100 shadow-sm flex items-center justify-center gap-2 hover:bg-gray-50 transition-all"
+        >
+          <Navigation className="w-5 h-5 text-blue-500" />
+          Use Current Location (GPS)
+        </button>
+      </div>
+
+      <div className="space-y-4">
+        <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Popular Cities</h3>
+        <div className="grid grid-cols-2 gap-3">
+          {INDIAN_CITIES.slice(0, 4).map(c => (
+            <button 
+              key={c.name}
+              onClick={() => onSelectLocation(c.name, "Central", c.lat, c.lng)}
+              className="p-4 bg-white rounded-2xl border border-gray-100 text-left hover:border-blue-500 transition-all group"
+            >
+              <p className="text-sm font-bold text-gray-900 group-hover:text-blue-600">{c.name}</p>
+              <p className="text-[10px] text-gray-400 font-medium">India</p>
+            </button>
+          ))}
         </div>
       </div>
     </div>
@@ -339,10 +431,10 @@ function MapScreen({ center, data }: { center: {lat: number, lng: number}, data:
     <div className="h-full flex flex-col">
       <div className="p-6 bg-white border-b border-gray-100">
         <h2 className="text-xl font-bold text-gray-900">Pollution Map</h2>
-        <p className="text-sm text-gray-500">Real-time air quality in your area</p>
+        <p className="text-sm text-gray-500">Real-time air quality across India</p>
       </div>
       <div className="flex-1 z-0">
-        <MapContainer center={[center.lat, center.lng]} zoom={13} style={{ height: '100%', width: '100%' }}>
+        <MapContainer center={[center.lat, center.lng]} zoom={5} style={{ height: '100%', width: '100%' }}>
           <TileLayer
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
@@ -355,17 +447,26 @@ function MapScreen({ center, data }: { center: {lat: number, lng: number}, data:
               </div>
             </Popup>
           </Marker>
-          {/* Mock nearby stations */}
-          <Circle 
-            center={[center.lat + 0.01, center.lng + 0.01]} 
-            radius={500} 
-            pathOptions={{ color: '#22c55e', fillColor: '#22c55e' }} 
-          />
-          <Circle 
-            center={[center.lat - 0.015, center.lng - 0.005]} 
-            radius={800} 
-            pathOptions={{ color: '#ef4444', fillColor: '#ef4444' }} 
-          />
+          
+          {INDIAN_CITIES.map(city => {
+            const mockAqi = Math.floor(Math.random() * 400) + 50;
+            const { color } = getAQICategory(mockAqi);
+            return (
+              <Circle 
+                key={city.name}
+                center={[city.lat, city.lng]} 
+                radius={20000} 
+                pathOptions={{ color: color, fillColor: color, fillOpacity: 0.6 }} 
+              >
+                <Popup>
+                  <div className="text-center">
+                    <p className="font-bold">{city.name}</p>
+                    <p className="text-lg font-black" style={{ color }}>AQI: {mockAqi}</p>
+                  </div>
+                </Popup>
+              </Circle>
+            );
+          })}
         </MapContainer>
       </div>
     </div>

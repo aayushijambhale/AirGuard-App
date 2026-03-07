@@ -20,6 +20,7 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS aqi_history (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     location_name TEXT,
+    area_name TEXT,
     aqi_value INTEGER,
     pm25 REAL,
     pm10 REAL,
@@ -70,11 +71,11 @@ async function startServer() {
   });
 
   app.post("/api/aqi/log", (req, res) => {
-    const { location_name, aqi_value, pm25, pm10, co, no2, so2, o3 } = req.body;
+    const { location_name, area_name, aqi_value, pm25, pm10, co, no2, so2, o3 } = req.body;
     db.prepare(`
-      INSERT INTO aqi_history (location_name, aqi_value, pm25, pm10, co, no2, so2, o3)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(location_name, aqi_value, pm25, pm10, co, no2, so2, o3);
+      INSERT INTO aqi_history (location_name, area_name, aqi_value, pm25, pm10, co, no2, so2, o3)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(location_name, area_name || '', aqi_value, pm25, pm10, co, no2, so2, o3);
     res.json({ success: true });
   });
 
