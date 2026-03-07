@@ -5,21 +5,36 @@ import path from "path";
 import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const db = new Database("nexus.db");
+const db = new Database("airguard.db");
 
 // Initialize database
 db.exec(`
-  CREATE TABLE IF NOT EXISTS notes (
+  CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    title TEXT NOT NULL,
-    content TEXT NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    email TEXT UNIQUE,
+    location_lat REAL,
+    location_lng REAL,
+    alert_threshold INTEGER DEFAULT 100,
+    notifications_enabled INTEGER DEFAULT 1
   );
-  CREATE TABLE IF NOT EXISTS chat_history (
+  CREATE TABLE IF NOT EXISTS aqi_history (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    role TEXT NOT NULL,
-    content TEXT NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    location_name TEXT,
+    aqi_value INTEGER,
+    pm25 REAL,
+    pm10 REAL,
+    co REAL,
+    no2 REAL,
+    so2 REAL,
+    o3 REAL,
+    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+  CREATE TABLE IF NOT EXISTS alerts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER,
+    aqi_level INTEGER,
+    message TEXT,
+    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
   );
 `);
 
@@ -30,31 +45,42 @@ async function startServer() {
   app.use(express.json());
 
   // API Routes
-  app.get("/api/notes", (req, res) => {
-    const notes = db.prepare("SELECT * FROM notes ORDER BY created_at DESC").all();
-    res.json(notes);
+  app.get("/api/user", (req, res) => {
+    const user = db.prepare("SELECT * FROM users LIMIT 1").get();
+    if (!user) {
+      const info = db.prepare("INSERT INTO users (email, alert_threshold) VALUES (?, ?)").run("user@example.com", 100);
+      return res.json(db.prepare("SELECT * FROM users WHERE id = ?").get(info.lastInsertRowid));
+    }
+    res.json(user);
   });
 
-  app.post("/api/notes", (req, res) => {
-    const { title, content } = req.body;
-    const info = db.prepare("INSERT INTO notes (title, content) VALUES (?, ?)").run(title, content);
-    res.json({ id: info.lastInsertRowid, title, content });
-  });
-
-  app.delete("/api/notes/:id", (req, res) => {
-    db.prepare("DELETE FROM notes WHERE id = ?").run(req.params.id);
+  app.post("/api/user/settings", (req, res) => {
+    const { alert_threshold, notifications_enabled, location_lat, location_lng } = req.body;
+    db.prepare(`
+      UPDATE users 
+      SET alert_threshold = ?, notifications_enabled = ?, location_lat = ?, location_lng = ?
+      WHERE id = (SELECT id FROM users LIMIT 1)
+    `).run(alert_threshold, notifications_enabled, location_lat, location_lng);
     res.json({ success: true });
   });
 
-  app.get("/api/chat", (req, res) => {
-    const history = db.prepare("SELECT * FROM chat_history ORDER BY created_at ASC").all();
+  app.get("/api/aqi/history", (req, res) => {
+    const history = db.prepare("SELECT * FROM aqi_history ORDER BY timestamp DESC LIMIT 24").all();
     res.json(history);
   });
 
-  app.post("/api/chat", (req, res) => {
-    const { role, content } = req.body;
-    db.prepare("INSERT INTO chat_history (role, content) VALUES (?, ?)").run(role, content);
+  app.post("/api/aqi/log", (req, res) => {
+    const { location_name, aqi_value, pm25, pm10, co, no2, so2, o3 } = req.body;
+    db.prepare(`
+      INSERT INTO aqi_history (location_name, aqi_value, pm25, pm10, co, no2, so2, o3)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(location_name, aqi_value, pm25, pm10, co, no2, so2, o3);
     res.json({ success: true });
+  });
+
+  app.get("/api/alerts", (req, res) => {
+    const alerts = db.prepare("SELECT * FROM alerts ORDER BY timestamp DESC LIMIT 10").all();
+    res.json(alerts);
   });
 
   // Vite middleware for development
