@@ -39,6 +39,13 @@ db.exec(`
   );
 `);
 
+// Migration: Add area_name to aqi_history if it doesn't exist
+try {
+  db.exec("ALTER TABLE aqi_history ADD COLUMN area_name TEXT;");
+} catch (e) {
+  // Column already exists or table doesn't exist yet (unlikely due to CREATE TABLE above)
+}
+
 async function startServer() {
   const app = express();
   const PORT = 3000;
