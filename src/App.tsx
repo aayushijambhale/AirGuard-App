@@ -514,6 +514,26 @@ function HistoryScreen({ history }: { history: any[] }) {
         </div>
       </div>
 
+      <div className="bg-white p-4 rounded-3xl border border-gray-100 shadow-sm">
+        <h3 className="text-sm font-bold text-gray-900 mb-6 flex items-center gap-2">
+          <Wind className="w-4 h-4 text-emerald-500" />
+          Pollutant Analysis
+        </h3>
+        <div className="h-64 w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={chartData}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+              <XAxis dataKey="time" fontSize={10} tickLine={false} axisLine={false} />
+              <YAxis fontSize={10} tickLine={false} axisLine={false} />
+              <Tooltip 
+                contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+              />
+              <Line type="monotone" dataKey="aqi" stroke="#10b981" strokeWidth={3} dot={{ r: 4, fill: "#10b981" }} activeDot={{ r: 6 }} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
       <div className="space-y-4">
         <h3 className="text-sm font-bold text-gray-900">Recent Logs</h3>
         <div className="space-y-3">
