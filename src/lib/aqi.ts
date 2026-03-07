@@ -15,12 +15,12 @@ export interface AQIData {
 }
 
 export const getAQICategory = (aqi: number) => {
-  if (aqi <= 50) return { category: "Good", color: "#22c55e", advice: "Outdoor activity safe" };
-  if (aqi <= 100) return { category: "Moderate", color: "#eab308", advice: "Sensitive people should reduce exposure" };
-  if (aqi <= 150) return { category: "Unhealthy for Sensitive Groups", color: "#f97316", advice: "Wear mask outdoors if sensitive" };
-  if (aqi <= 200) return { category: "Unhealthy", color: "#ef4444", advice: "Wear mask outdoors" };
-  if (aqi <= 300) return { category: "Very Unhealthy", color: "#a855f7", advice: "Avoid outdoor activities" };
-  return { category: "Hazardous", color: "#7f1d1d", advice: "Stay indoors" };
+  if (aqi <= 50) return { category: "Good", color: "#22c55e", advice: "Minimal impact. Outdoor activities are safe." };
+  if (aqi <= 100) return { category: "Satisfactory", color: "#84cc16", advice: "Minor breathing discomfort for sensitive people." };
+  if (aqi <= 200) return { category: "Moderate", color: "#eab308", advice: "Breathing discomfort to people with lungs, asthma and heart diseases." };
+  if (aqi <= 300) return { category: "Poor", color: "#f97316", advice: "Breathing discomfort to most people on prolonged exposure." };
+  if (aqi <= 400) return { category: "Very Poor", color: "#ef4444", advice: "Respiratory illness on prolonged exposure." };
+  return { category: "Severe", color: "#7f1d1d", advice: "Affects healthy people and seriously impacts those with existing diseases." };
 };
 
 // Mock function to simulate API fetch
@@ -28,8 +28,8 @@ export const fetchCurrentAQI = async (lat: number, lng: number): Promise<AQIData
   // In a real app, you'd use:
   // const res = await axios.get(`https://api.openweathermap.org/data/2.5/air_pollution?lat=${lat}&lon=${lng}&appid=${API_KEY}`);
   
-  // Simulating random data for demo
-  const mockAQI = Math.floor(Math.random() * 350);
+  // Simulating random data for demo (Indian cities often have higher AQI)
+  const mockAQI = Math.floor(Math.random() * 500);
   const { category, color, advice } = getAQICategory(mockAQI);
   
   return {

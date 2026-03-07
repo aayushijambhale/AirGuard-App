@@ -58,14 +58,14 @@ export default function App() {
   const [alerts, setAlerts] = useState<any[]>([]);
   const [userSettings, setUserSettings] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [location, setLocation] = useState<{lat: number, lng: number}>({lat: 40.7128, lng: -74.0060}); // Default NYC
+  const [location, setLocation] = useState<{lat: number, lng: number}>({lat: 28.6139, lng: 77.2090}); // Default New Delhi
   const [aiAdvice, setAiAdvice] = useState<string>('');
   const [loadingAdvice, setLoadingAdvice] = useState(false);
 
   const getAiAdvice = async (data: AQIData) => {
     setLoadingAdvice(true);
     try {
-      const prompt = `As a health expert, give me 3 concise, bulleted safety tips for a current AQI of ${data.aqi} (${data.category}). The pollutants are: PM2.5: ${data.pollutants.pm25}, PM10: ${data.pollutants.pm10}, O3: ${data.pollutants.o3}. Focus on immediate actions. Use plain text.`;
+      const prompt = `As a health expert in India, give me 3 concise, bulleted safety tips for a current AQI of ${data.aqi} (${data.category}) based on CPCB (Central Pollution Control Board) standards. The pollutants are: PM2.5: ${data.pollutants.pm25}, PM10: ${data.pollutants.pm10}, O3: ${data.pollutants.o3}. Focus on immediate actions relevant to Indian urban environments. Use plain text.`;
       const advice = await generateChatResponse(prompt, []);
       setAiAdvice(advice || "Stay safe and monitor local air quality reports.");
     } catch (err) {
@@ -177,7 +177,7 @@ export default function App() {
           <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
             <Wind className="w-5 h-5 text-white" />
           </div>
-          <h1 className="text-xl font-bold tracking-tight text-gray-900">AirGuard</h1>
+          <h1 className="text-xl font-bold tracking-tight text-gray-900">AirGuard India</h1>
         </div>
         <button 
           onClick={() => refreshData(location.lat, location.lng)}
@@ -263,7 +263,7 @@ function HomeScreen({ data, aiAdvice, loadingAdvice, onRefresh }: { data: AQIDat
             style={{ borderColor: `${data.color}20` }}
           >
             <span className="text-6xl font-black text-gray-900">{data.aqi}</span>
-            <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">AQI</span>
+            <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">CPCB AQI</span>
           </div>
           <div 
             className="absolute -bottom-2 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full text-white text-xs font-bold shadow-lg"
@@ -546,7 +546,7 @@ function SettingsScreen({ settings, onUpdateSettings }: { settings: any, onUpdat
       </button>
 
       <div className="text-center">
-        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">AirGuard v1.0.0</p>
+        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">AirGuard India v1.1.0</p>
         <p className="text-[10px] text-gray-300 mt-1 italic">Designed for your safety</p>
       </div>
     </div>

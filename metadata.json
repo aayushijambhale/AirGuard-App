@@ -1,5 +1,5 @@
 {
-  "name": "AirGuard",
-  "description": "Real-time Air Quality Alert System with pollution monitoring and health recommendations.",
+  "name": "AirGuard India",
+  "description": "India's premier Air Quality Alert System. Monitor pollution across all Indian states and cities with real-time alerts and health recommendations based on CPCB standards.",
   "requestFramePermissions": ["geolocation"]
 }
